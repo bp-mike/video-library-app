@@ -13,6 +13,7 @@ app.get('/', async (req, res, next) => {
 });
 
 app.use('/users', require('./v1/routes/users.route'));
+app.use('/login', require('./v1/routes/auth.route'))
 
 app.use((req, res, next) => {
   // const error = new Error('Not Found')
