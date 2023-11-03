@@ -1,0 +1,11 @@
+node_modules
+# Keep environment variables out of version control
+.env
+
+# Prisma
+/prisma/.env
+/prisma/client
+
+# Environment variables
+.env
+notes.md
