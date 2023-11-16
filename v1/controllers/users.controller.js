@@ -16,7 +16,7 @@ const registerUser = async (req, res, next) => {
     if (useExists) {
       return res.status(400).json({
         status: 400,
-        success: 0,
+        success: false,
         message: "A User with this email already exists",
       });
     }
@@ -30,8 +30,8 @@ const registerUser = async (req, res, next) => {
 
     return res.status(200).json({
       status: 200,
-      success: 1,
-      data: newUser,
+      success: true,
+      user: newUser,
       message: "User Registered Successfully",
     });
   } catch (error) {
@@ -50,7 +50,7 @@ const getAllUsers = async (req, res, next) => {
 
     return res.status(200).json({
       status: 200,
-      success: 1,
+      success: true,
       data: users,
       message: "Users Fetched Successfully",
     });
@@ -71,14 +71,14 @@ const getOneUser = async (req, res, next) => {
     if (!user) {
       return res.status(404).json({
         status: 404,
-        success: 0,
+        success: false,
         message: "User does not exist",
       });
     }
 
     return res.status(200).json({
       status: 200,
-      success: 1,
+      success: true,
       data: user,
       message: "User Data Fetched Successfully",
     });
@@ -99,26 +99,74 @@ const updateUser = async (req, res, next) => {
     if (!userExists) {
       return res.status(404).json({
         status: 404,
-        success: 0,
+        success: false,
+        message: "User does not exist",
+      });
+    }
+
+    console.log(req.body);
+
+    const updatedUser = await prisma.user.update({
+      where: {
+        id: Number(id),
+      },
+      data: req.body,
+    });
+
+    return res.status(200).json({
+      status: 200,
+      success: true,
+      data: updatedUser,
+      message: "User Update Successfully",
+    });
+  } catch (error) {
+    res.status(400).json({ status: 400, error: `${error.message}` });
+    console.log(error);
+    // next(error);
+  }
+};
+
+const updateUserPassword = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const userExists = await prisma.user.findUnique({
+      where: {
+        id: Number(id),
+      },
+    });
+    if (!userExists) {
+      return res.status(404).json({
+        status: 404,
+        success: false,
         message: "User does not exist",
       });
     }
 
     const body = req.body;
+    const isPasswordMatched = await bcrypt.compare(body.currentPassword, userExists.password);
+    if(!isPasswordMatched){
+      return res.status(404).json({
+        status: 400,
+        success: false,
+        message: "Incorrect Old Password",
+      });
+    }
     const salt = await bcrypt.genSalt(10);
-    body.password = await bcrypt.hash(body.password, salt);
+    const newPasswordHash = await bcrypt.hash(body.newPassword, salt);
     const updatedUser = await prisma.user.update({
       where: {
         id: Number(id),
       },
-      data: body,
+      data: {
+        password: newPasswordHash,
+      },
     });
 
     return res.status(200).json({
       status: 200,
-      success: 1,
+      success: true,
       data: updatedUser,
-      message: "User Update Successfully",
+      message: "User Password Update Successfully",
     });
   } catch (error) {
     res.status(400).json({ status: 400, error: `${error.message}` });
@@ -137,7 +185,7 @@ const deleteUser = async (req, res, next) => {
     if (!userExists) {
       return res.status(404).json({
         status: 404,
-        success: 0,
+        success: false,
         message: "User does not exist",
       });
     }
@@ -150,7 +198,7 @@ const deleteUser = async (req, res, next) => {
 
     return res.status(200).json({
       status: 200,
-      success: 1,
+      success: true,
       data: deletedUser,
       message: "User Deleted Successfully",
     });
@@ -165,5 +213,6 @@ module.exports = {
   getAllUsers,
   getOneUser,
   updateUser,
+  updateUserPassword,
   deleteUser,
 };

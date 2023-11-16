@@ -19,15 +19,17 @@ const login = async (req, res, next) => {
       });
     }
 
-    const result = bcrypt.compare(body.password, user.password);
+    const result = await bcrypt.compare(body.password, user.password);
+    console.log(result);
     if (result) {
       user.password = undefined;
       const jToken = jwt.sign(user, process.env.JWT_ACCESS_SECRET, {
-        expiresIn: "1m",
+        expiresIn: "59m",
       });
       return res.status(200).json({
         status: 200,
         success: 1,
+        user,
         token: jToken,
         message: "logged in successfully",
       });

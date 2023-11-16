@@ -1,9 +1,11 @@
 const express = require('express');
+const cors = require('cors');
 const createError = require('http-errors');
 const morgan = require('morgan');
 require('dotenv').config();
 
 const app = express();
+app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 app.use(morgan('dev'));
@@ -14,6 +16,7 @@ app.get('/', async (req, res, next) => {
 
 app.use('/users', require('./v1/routes/users.route'));
 app.use('/login', require('./v1/routes/auth.route'))
+app.use('/movies', require('./v1/routes/movies.route'))
 
 app.use((req, res, next) => {
   // const error = new Error('Not Found')

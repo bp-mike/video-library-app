@@ -15,21 +15,65 @@ model User {
   userName  String
   email     String   @unique
   password  String
+  avatar    String   @default("") // TODO avatar
+  role      String   @default("user")
   createdAt DateTime @default(now())
   orders    Order[]
 }
 
+// Define enum values for category
+enum Genre {
+  Action
+  Adventure
+  Animation
+  Comedy
+  Crime
+  Documentary
+  Drama
+  Family
+  Fantasy
+  History
+  Horror
+  Music
+  Mystery
+  Romance
+  ScienceFiction
+  TVMovie
+  Thriller
+  War
+  Western
+}
+
 model Movie {
-  id            Int      @id @default(autoincrement())
-  title         String   @unique
-  description   String
-  price         Int
-  rating        String
-  director      String
-  genre         String
-  coverImageUrl String
-  orders        Order[]
-  createdAt     DateTime @default(now())
+  id          Int      @id @default(autoincrement())
+  title       String   @unique
+  description String
+  price       Float
+  ratings     Float    @default(0)
+  director    String
+  genre       Genre
+  orders      Order[]
+  image       String
+  // image      Image[]
+  reviews     Review[]
+  createdAt   DateTime @default(now())
+}
+
+// model Image {
+//   id        Int    @id @default(autoincrement())
+//   public_id String @unique
+//   url       String
+//   movieId   Int
+//   Movie     Movie  @relation(fields: [movieId], references: [id])
+// }
+
+model Review {
+  id        Int      @id @default(autoincrement())
+  rating    Float
+  comment   String
+  createdAt DateTime @default(now())
+  movieId   Int
+  Movie     Movie    @relation(fields: [movieId], references: [id])
 }
 
 model Order {
