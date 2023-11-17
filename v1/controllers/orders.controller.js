@@ -1,8 +1,9 @@
 const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
+const getRawBody = require('raw-body');
 
-// const { PrismaClient } = require("@prisma/client");
+const { PrismaClient } = require("@prisma/client");
 
-// const prisma = new PrismaClient();
+const prisma = new PrismaClient();
 
 const checkoutSession = async (req, res, next) => {
   const body = req.body;
@@ -47,248 +48,212 @@ const checkoutSession = async (req, res, next) => {
   });
 };
 
-// const createMovie = async (req, res, next) => {
+const getCartItems = async (line_items) => {
+  return new Promise((resolve, reject) => {
+    let cartItems = [];
+
+    line_items?.data?.forEach(async (item) => {
+      const movie = await stripe.products.retrieve(item.price.product);
+      const movieId = movie.metadata.movieId;
+
+      cartItems.push({
+        movieId: movieId,
+        title: movie.name,
+        price: item.price.unit_amount_decimal / 100,
+        image: movie.images[0],
+      });
+
+      if (cartItems.length === line_items?.data.length) {
+        resolve(cartItems);
+      }
+    });
+  });
+}
+
+const webhook = async (req, res) => {
+  try {
+    const rawBody = await getRawBody(req)
+    const signature = req.headers["stripe-signature"];
+
+    const event = stripe.webhooks.constructEvent(
+      rawBody,
+      signature,
+      process.env.STRIPE_WEBHOOK_SECRET
+    );
+
+    if (event.type === "checkout.session.completed") {
+      const session = event.data.object;
+
+      const line_items = await stripe.checkout.sessions.listLineItems(
+        event.data.object.id
+      );
+      
+      const orderItems = await getCartItems(line_items);
+      const userId = session.client_reference_id;
+      const amountPaid = session.amount_total / 100;
+
+      const paymentInfo = {
+        id: session.payment_intent,
+        status: session.payment_status,
+        amountPaid,
+        taxPaid: session.total_details.amount_tax / 100,
+      };
+
+      // const orderData = {
+      //   movieId: +orderItems[0].movieId,
+      //   userId: +userId,
+      // };
+
+      // // const orderData = {
+      // //   user: { connect: { id: userId } }, // Connect to an existing user by ID
+      // //   movies: {
+      // //     connect: orderItems.map((item) => ({
+      // //       id: item.movieId
+      // //     })),
+      // //   },
+      // // };
+
+      // const createdOrder = await prisma.order.create({
+      //   data: orderData,
+      //   // include: {
+      //   //   movies: true,
+      //   //   user: true,
+      //   // },
+      // });
+
+      const orderDataArray = orderItems.map((orderItem) => ({
+        movieId: +orderItem.movieId,
+        userId: +userId,
+      }));
+      
+      const createdOrders = await Promise.all(
+        orderDataArray.map((orderData) =>
+          prisma.order.create({
+            data: orderData,
+          })
+        )
+      );
+
+      res.status(201).json({
+        status: 201,
+        success: true,
+        data: createdOrders,
+        message: "Order Saved Successfully",
+      });
+
+    }
+  } catch (error) {
+    console.log(error);
+  }
+};
+
+// const webhook = async (req, res) => {
 //   try {
-//     const body = req.body;
-//     // check if movie title  exists
-//     const movieTitleExists = await prisma.movie.findUnique({
-//       where: {
-//         title: body.title.toLowerCase(),
-//       },
-//     });
-//     if (movieTitleExists) {
-//       return res.status(400).json({
-//         status: 400,
-//         success: false,
-//         message: "A Movie with a similar title already exists",
-//       });
-//     }
+//     const rawBody = req.rawBody.toString('utf-8'); 
+//     const signature = req.headers["stripe-signature"];
 
-//     await prisma.movie.create({
-//       data: {
-//         ...body,
-//         title: body.title.toLowerCase(),
-//       },
-//     });
+//     const event = stripe.webhooks.constructEvent(
+//       rawBody,
+//       signature,
+//       process.env.STRIPE_WEBHOOK_SECRET
+//     );
 
-//     return res.status(201).json({
-//       status: 200,
-//       success: true,
-//       message: "Movie added Successfully",
-//     });
-//   } catch (error) {
-//     next(error);
-//     // return res.status(400).json({ status: 400, error: `${error.message}` });
-//   }
-// };
+//     if (event.type === "checkout.session.completed") {
+//       const session = event.data.object;
 
-// const getAllMovies = async (req, res, next) => {
-//   try {
-//     const { page, pageSize, titleSearch, genre, ratings, minPrice, maxPrice } = req.query;
-//     const pageInt = parseInt(page) || 1;
-//     const pageSizeInt = parseInt(pageSize) || 10;
-//     const skip = (pageInt - 1) * pageSizeInt;
+//       const line_items = await stripe.checkout.sessions.listLineItems(
+//         event.data.object.id
+//       );
+//       // console.log('Raw Body:', req.body.toString('utf-8'));
+//       // console.log('Headers:', req.headers);
+//       // console.log(line_items);
 
-//     const where = {};
-//     if (titleSearch) {
-//       where.title = {
-//         contains: titleSearch,
-//         mode: "insensitive", // Case-insensitive titleSearch
+//       console.log('Raw Body:', rawBody);
+//       console.log('Headers:', req.headers);
+//      return 
+
+//       const orderItems = await getCartItems(line_items);
+//       const userId = session.client_reference_id;
+//       const amountPaid = session.amount_total / 100;
+
+//       const paymentInfo = {
+//         id: session.payment_intent,
+//         status: session.payment_status,
+//         amountPaid,
+//         taxPaid: session.total_details.amount_tax / 100,
 //       };
+
+//       const orderData = {
+//         user: userId,
+//         paymentInfo,
+//         orderItems,
+//       };
+
+//       // const order = await Order.create(orderData);
+//       // res.status(201).json({ success: true });
 //     }
-//     if (genre) {
-//       where.genre = genre;
-//     }
-//     // if (ratings) {
-//     //   where.ratings = parseFloat(ratings)
-//     // }
-
-//     if (ratings) {
-//       const ratingRange = parseFloat(ratings);
-//       switch (true) {
-//         case ratingRange === 1:
-//           where.ratings = 1;
-//           break;
-//         case ratingRange >= 1.1 && ratingRange <= 2:
-//           where.ratings = { gte: 1.1, lte: 2 };
-//           break;
-//         case ratingRange >= 2.1 && ratingRange <= 3:
-//           where.ratings = { gte: 2.1, lte: 3 };
-//           break;
-//         case ratingRange >= 3.1 && ratingRange <= 4:
-//           where.ratings = { gte: 3.1, lte: 4 };
-//           break;
-//         case ratingRange >= 4.1 && ratingRange <= 5:
-//           where.ratings = { gte: 4.1, lte: 5 };
-//           break;
-//         default:
-//           return res.status(400).json({ error: "Invalid ratings" });
-//       }
-//     }
-
-//     if (minPrice || maxPrice) {
-//       where.price = {};
-//       if (minPrice) {
-//         where.price.gte = parseFloat(minPrice);
-//       }
-//       if (maxPrice) {
-//         where.price.lte = parseFloat(maxPrice);
-//       }
-//     }
-
-//     const movies = await prisma.movie.findMany({
-//       where,
-//       skip,
-//       take: pageSizeInt,
-//       include: {
-//         reviews: true,
-//       },
-//     });
-
-//     const totalMovies = await prisma.movie.count({ where });
-
-//     return res.status(200).json({
-//       status: 200,
-//       success: true,
-//       message: "Movies Fetched Successfully",
-//       movies,
-//       totalMovies,
-//       page: pageInt,
-//       pageSize: pageSizeInt,
-//     });
 //   } catch (error) {
-//     next(error);
+//     console.log(error);
 //   }
 // };
 
-// const getOneMovie = async (req, res, next) => {
+// const webhook = async (req, res) => {
 //   try {
-//     const { id } = req.params;
-//     const movie = await prisma.movie.findUnique({
-//       where: {
-//         id: Number(id),
-//       },
-//       include: {
-//         reviews: true,
-//       },
-//     });
-//     if (!movie) {
-//       return res.status(404).json({
-//         status: 404,
-//         success: false,
-//         message: "Movie does not exist",
-//       });
-//     }
+//     const rawBody = await getRawBody(req);
+//     const signature = req.headers["stripe-signature"];
 
-//     return res.status(200).json({
-//       status: 200,
-//       success: true,
-//       movie,
-//       message: "movie Fetched Successfully",
-//     });
+//     const event = stripe.webhooks.constructEvent(
+//       rawBody,
+//       signature,
+//       process.env.STRIPE_WEBHOOK_SECRET
+//     );
+
+//     if (event.type === "checkout.session.completed") {
+//       const session = event.data.object;
+
+//       const line_items = await stripe.checkout.sessions.listLineItems(
+//         event.data.object.id
+//       );
+
+//      return  console.log(line_items);
+
+//       const orderItems = await getCartItems(line_items);
+//       const userId = session.client_reference_id;
+//       const amountPaid = session.amount_total / 100;
+
+//       const paymentInfo = {
+//         id: session.payment_intent,
+//         status: session.payment_status,
+//         amountPaid,
+//         taxPaid: session.total_details.amount_tax / 100,
+//       };
+
+//       const orderData = {
+//         userId,
+//         paymentInfo,
+//         movies: orderItems.map((item) => ({
+//           title: item.name,
+//           price: item.price,
+//           quantity: item.quantity,
+//           image: item.image,
+//         })),
+//       };
+
+//       // Create order using Prisma
+//       const createdOrder = await prisma.order.create({
+//         data: orderData,
+//       });
+
+//       console.log("Order created:", createdOrder);
+//     }
+//     res.status(200).send();
 //   } catch (error) {
-//     // res.status(400).json({ status: 400, error: `${error.message}` });
-//     next(error);
+//     console.error("Error processing webhook:", error);
+//     res.status(500).send("Internal Server Error");
 //   }
 // };
-
-// const updateMovie = async (req, res, next) => {
-//   const body = req.body;
-//   try {
-//     const { id } = req.params;
-//     const movie = await prisma.movie.findUnique({
-//       where: {
-//         id: Number(id),
-//       },
-//     });
-//     if (!movie) {
-//       return res.status(404).json({
-//         status: 404,
-//         success: false,
-//         message: "Movie does not exist",
-//       });
-//     }
-
-//     // Check if a movie with the same title as the updated title exists (excluding the current movie)
-//     const movieTitleExists = await prisma.movie.findFirst({
-//       where: {
-//         title: body.title.toLowerCase(),
-//         NOT: {
-//           id: Number(id), // Exclude the current movie by its ID
-//         },
-//       },
-//     });
-
-//     if (movieTitleExists) {
-//       return res.status(400).json({
-//         status: 400,
-//         success: false,
-//         message: "A movie with a similar title already exists",
-//       });
-//     }
-
-//     await prisma.movie.update({
-//       where: {
-//         id: Number(id),
-//       },
-
-//       data: {
-//         ...body,
-//         title: body.title.toLowerCase(),
-//       },
-//     });
-
-//     return res.status(200).json({
-//       status: 200,
-//       success: true,
-//       message: "Movie Update Successfully",
-//     });
-//   } catch (error) {
-//     res.status(400).json({ status: 400, error: `${error.message}` });
-//     next(error);
-//   }
-// };
-
-// const deleteMovie = async (req, res, next) => {
-//   try {
-//     const { id } = req.params;
-//     const movie = await prisma.movie.findUnique({
-//       where: {
-//         id: Number(id),
-//       },
-//     });
-//     if (!movie) {
-//       return res.status(404).json({
-//         status: 404,
-//         success: false,
-//         message: "Movie does not exist",
-//       });
-//     }
-
-//     await prisma.movie.delete({
-//       where: {
-//         id: Number(id),
-//       },
-//     });
-
-//     return res.status(200).json({
-//       status: 200,
-//       success: true,
-//       message: "movie Deleted Successfully",
-//     });
-//   } catch (error) {
-//     res.status(400).json({ status: 400, error: `${error.message}` });
-//     next(error);
-//   }
-// };
-
-// TODO search functionality
 
 module.exports = {
   checkoutSession,
-  //   createMovie,
-  //   getAllMovies,
-  //   getOneMovie,
-  //   deleteMovie,
-  //   updateMovie,
+  webhook,
 };

@@ -24,7 +24,7 @@ const login = async (req, res, next) => {
     if (result) {
       user.password = undefined;
       const jToken = jwt.sign(user, process.env.JWT_ACCESS_SECRET, {
-        expiresIn: "59m",
+        expiresIn: "3d",
       });
       return res.status(200).json({
         status: 200,

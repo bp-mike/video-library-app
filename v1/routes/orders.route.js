@@ -4,4 +4,6 @@ const { checkToken } = require("../auth/tokenValidation")
 
 router.post("/checkout_session", checkToken, ordersController.checkoutSession);
 
+router.post("/webhook",  ordersController.webhook);
+
 module.exports = router;
