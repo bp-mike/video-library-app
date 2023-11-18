@@ -147,6 +147,93 @@ const webhook = async (req, res) => {
   }
 };
 
+const myOrders = async (req, res, next) => {
+  try {
+    const { user_id } = req.params;
+    const { page, pageSize } = req.query;
+    const pageInt = parseInt(page) || 1;
+    const pageSizeInt = parseInt(pageSize) || 10;
+    const skip = (pageInt - 1) * pageSizeInt;
+
+    const where = {
+      userId: +user_id,
+    };
+
+    const orders = await prisma.order.findMany({
+      where,
+      skip,
+      take: pageSizeInt,
+      include: {
+        movies: true,
+        User: true
+      },
+    });
+
+    const totalOrders = await prisma.order.count({ where });
+
+    // Extract movieIds from orders
+    const movieIds = orders.map((order) => order.movieId);
+
+    // Fetch movies separately using the movieIds
+    const movies = await prisma.movie.findMany({
+      where: {
+        id: {
+          in: movieIds,
+        },
+      },
+    });
+
+    // Combine orders and movies based on movieId
+    const formattedOrders = orders.map((order) => {
+      // const movie = movies.find((m) => m.id === order.movieId);
+      return {
+        OrderNumber: order.OrderNumber,
+        userId: order.userId,
+        userName: order.User.userName,
+        userEmail: order.User.email,
+        userPhone: "0700 000 000", // TODO update scheme with user Phone
+        movieId: order.movieId,
+        createdAt: order.createdAt,
+        orderStatus: "Processing", // TODO update scheme with default Processing order status
+        // movie: {
+        //   movieId: movie.id,
+        //   movieTitle: movie.title,
+        //   moviePrice: movie.price,
+        // },
+        movies: movies.map((movie) => ({ //TODO do this right
+          movieId: movie.id,
+          movieTitle: movie.title,
+          moviePrice: movie.price,
+          movieImageUrl: movie.image,
+        })),
+      };
+    });
+
+    return res.status(200).json({
+      status: 200,
+      success: true,
+      message: "Orders Fetched Successfully",
+      orders: formattedOrders,
+      totalOrders,
+      page: pageInt,
+      pageSize: pageSizeInt,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+
+module.exports = {
+  checkoutSession,
+  webhook,
+  myOrders
+};
+
+
+
+
+
 // const webhook = async (req, res) => {
 //   try {
 //     const rawBody = req.rawBody.toString('utf-8'); 
@@ -252,8 +339,3 @@ const webhook = async (req, res) => {
 //     res.status(500).send("Internal Server Error");
 //   }
 // };
-
-module.exports = {
-  checkoutSession,
-  webhook,
-};
