@@ -223,14 +223,297 @@ const myOrders = async (req, res, next) => {
   }
 };
 
+const getAllOrders = async (req, res, next) => {
+  try {
+    const { page = 1, pageSize = 10 } = req.query;
+    const pageInt = parseInt(page, 10);
+    const pageSizeInt = parseInt(pageSize, 10);
+    const skip = (pageInt - 1) * pageSizeInt;
+
+    const orders = await prisma.order.findMany({
+      skip,
+      take: pageSizeInt,
+      include: {
+        movies: true,
+        User: true,
+      },
+    });
+
+    const totalOrders = await prisma.order.count({});
+
+    return res.status(200).json({
+      status: 200,
+      success: true,
+      message: "Orders Fetched Successfully",
+      orders: orders,
+      totalOrders,
+      page: pageInt,
+      pageSize: pageSizeInt,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+const getOneOrder = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const order = await prisma.order.findUnique({
+      where: {
+        OrderNumber: +id,
+      },
+      include: {
+        movies: true,
+        User: true,
+      },
+    });
+    if (!order) {
+      return res.status(404).json({
+        status: 404,
+        success: false,
+        message: "Order does not exist",
+      });
+    }
+
+    return res.status(200).json({
+      status: 200,
+      success: true,
+      order: {...order, status: "processing"},
+      message: "Order Fetched Successfully",
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+const updateOrder = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+
+    const existingOrder = await prisma.order.findUnique({
+      where: {
+        OrderNumber: +id,
+      },
+    });
+
+    if (!existingOrder) {
+      return res.status(404).json({
+        status: 404,
+        success: false,
+        message: "Order not found",
+      });
+    }
+
+    // Update the order in the database
+    const updatedOrder = await prisma.order.update({
+      where: {
+        OrderNumber: +id,
+      },
+      data: req.body,
+      include: {
+        movies: true,
+        User: true,
+      },
+    });
+
+    return res.status(200).json({
+      status: 200,
+      success: true,
+      order: updatedOrder,
+      message: "Order Updated Successfully",
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+const deleteOrder = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const existingOrder = await prisma.order.findUnique({
+      where: {
+        OrderNumber: +id,
+      },
+    });
+
+    if (!existingOrder) {
+      return res.status(404).json({
+        status: 404,
+        success: false,
+        message: "Order not found",
+      });
+    }
+
+    // Delete the order from the database
+    const deletedOrder = await prisma.order.delete({
+      where: {
+        OrderNumber: +id,
+      },
+      include: {
+        movies: true,
+        User: true,
+      },
+    });
+
+    return res.status(200).json({
+      status: 200,
+      success: true,
+      order: deletedOrder,
+      message: "Order Deleted Successfully",
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+const createOrder = async (req, res, next) => {
+  try {
+    const { userId, movieIds } = req.body;
+
+    // Check if the user and movies exist
+    const existingUser = await prisma.user.findUnique({
+      where: {
+        id: userId,
+      },
+    });
+
+    if (!existingUser) {
+      return res.status(404).json({
+        status: 404,
+        success: false,
+        message: "User not found",
+      });
+    }
+
+    const existingMovies = await prisma.movie.findMany({
+      where: {
+        id: {
+          in: movieIds,
+        },
+      },
+    });
+
+    if (existingMovies.length !== movieIds.length) {
+      return res.status(404).json({
+        status: 404,
+        success: false,
+        message: "One or more movies not found",
+      });
+    }
+
+    // Create the order in the database
+    const newOrder = await prisma.order.create({
+      data: {
+        User: {
+          connect: {
+            id: userId,
+          },
+        },
+        movies: {
+          connect: movieIds.map((movieId) => ({ id: movieId })),
+        },
+      },
+      include: {
+        movies: true,
+        User: true,
+      },
+    });
+
+    return res.status(201).json({
+      status: 201,
+      success: true,
+      order: newOrder,
+      message: "Order Created Successfully",
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 
 module.exports = {
   checkoutSession,
   webhook,
-  myOrders
+  myOrders,
+  getAllOrders,
+  getOneOrder,
+  updateOrder,
+  deleteOrder,
+  createOrder,
 };
 
 
+// const getAllOrders = async (req, res, next) => {
+//   try {
+//     const { page, pageSize } = req.query;
+//     const pageInt = parseInt(page) || 1;
+//     const pageSizeInt = parseInt(pageSize) || 10;
+//     const skip = (pageInt - 1) * pageSizeInt;
+
+//     const where = {};
+
+//     const orders = await prisma.order.findMany({
+//       where,
+//       skip,
+//       take: pageSizeInt,
+//       include: {
+//         movies: true,
+//         User: true
+//       },
+//     });
+
+//     const totalOrders = await prisma.order.count({ where });
+
+//     // Extract movieIds from orders
+//     const movieIds = orders.map((order) => order.movieId);
+
+//     // Fetch movies separately using the movieIds
+//     const movies = await prisma.movie.findMany({
+//       where: {
+//         id: {
+//           in: movieIds,
+//         },
+//       },
+//     });
+
+//     // Combine orders and movies based on movieId
+//     const formattedOrders = orders.map((order) => {
+//       // const movie = movies.find((m) => m.id === order.movieId);
+//       return {
+//         OrderNumber: order.OrderNumber,
+//         userId: order.userId,
+//         userName: order.User.userName,
+//         userEmail: order.User.email,
+//         userPhone: "0700 000 000", 
+//         movieId: order.movieId,
+//         createdAt: order.createdAt,
+//         orderStatus: "Processing", 
+//         // movie: {
+//         //   movieId: movie.id,
+//         //   movieTitle: movie.title,
+//         //   moviePrice: movie.price,
+//         // },
+//         movies: movies.map((movie) => ({ 
+//           movieTitle: movie.title,
+//           moviePrice: movie.price,
+//           movieImageUrl: movie.image,
+//         })),
+//       };
+//     });
+
+//     return res.status(200).json({
+//       status: 200,
+//       success: true,
+//       message: "Orders Fetched Successfully",
+//       orders: formattedOrders,
+//       totalOrders,
+//       page: pageInt,
+//       pageSize: pageSizeInt,
+//     });
+//   } catch (error) {
+//     next(error);
+//   }
+// };
 
 
 

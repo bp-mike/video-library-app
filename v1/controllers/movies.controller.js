@@ -2,6 +2,8 @@ const { PrismaClient } = require("@prisma/client");
 
 const prisma = new PrismaClient();
 
+//TODO restrict non admin role users from creatinf & editing
+
 const createMovie = async (req, res, next) => {
   try {
     const body = req.body;
@@ -32,30 +34,11 @@ const createMovie = async (req, res, next) => {
       message: "Movie added Successfully",
     });
   } catch (error) {
+    console.log(error);
     next(error);
     // return res.status(400).json({ status: 400, error: `${error.message}` });
   }
 };
-
-// const getAllMovies = async (req, res, next) => {
-//   try {
-//     const movies = await prisma.movie.findMany({
-//       include: {
-//         reviews: true,
-//       },
-//     });
-
-//     return res.status(200).json({
-//       status: 200,
-//       success: true,
-//       movies,
-//       message: "movies Fetched Successfully",
-//     });
-//   } catch (error) {
-//     // res.status(400).json({ status: 400, error: `${error.message}` });
-//     next(error);
-//   }
-// };
 
 const getAllMovies = async (req, res, next) => {
   try {
@@ -135,7 +118,6 @@ const getAllMovies = async (req, res, next) => {
     next(error);
   }
 };
-
 
 const getOneMovie = async (req, res, next) => {
   try {
@@ -250,7 +232,7 @@ const deleteMovie = async (req, res, next) => {
     return res.status(200).json({
       status: 200,
       success: true,
-      message: "movie Deleted Successfully",
+      message: "Movie Deleted Successfully",
     });
   } catch (error) {
     res.status(400).json({ status: 400, error: `${error.message}` });
