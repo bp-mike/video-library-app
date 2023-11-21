@@ -1,9 +1,9 @@
 const router = require("express").Router();
 const usersController = require("../controllers/users.controller")
-const multer = require('multer');
+// const multer = require('multer');
 // const { checkToken } = require("../auth/tokenValidation")
 
-const upload = multer({ dest: 'uploads/' });
+// const upload = multer({ dest: 'uploads/' });
 
 router.post("/", usersController.registerUser);
 

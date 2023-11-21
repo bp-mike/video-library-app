@@ -49,7 +49,7 @@ model Movie {
   title       String   @unique
   description String
   price       Float
-  ratings     Float    @default(0)
+  ratings     Float    @default(0) // TODO ratings is average of all movie review ratings
   director    String
   genre       Genre
   orders      Order[]
@@ -64,7 +64,7 @@ model Review {
   comment   String
   createdAt DateTime @default(now())
   movieId   Int
-  Movie     Movie    @relation(fields: [movieId], references: [id])
+  Movie     Movie    @relation(fields: [movieId], references: [id]) //TODO user id, he who posts the review
 }
 
 model Order {

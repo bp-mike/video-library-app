@@ -42,20 +42,31 @@ const registerUser = async (req, res, next) => {
 
 const getAllUsers = async (req, res, next) => {
   try {
+    const { page, pageSize } = req.query;
+    const pageInt = parseInt(page) || 1;
+    const pageSizeInt = parseInt(pageSize) || 10;
+    const skip = (pageInt - 1) * pageSizeInt;
+
     const users = await prisma.user.findMany({
+      skip,
+      take: pageSizeInt,
       include: {
         orders: true,
       },
     });
 
+    const totalUsers = await prisma.user.count({});
+
     return res.status(200).json({
       status: 200,
       success: true,
-      data: users,
+      users,
+      totalUsers,
+      page: pageInt,
+      pageSize: pageSizeInt,
       message: "Users Fetched Successfully",
     });
   } catch (error) {
-    // res.status(400).json({ status: 400, error: `${error.message}` });
     next(error);
   }
 };
@@ -65,7 +76,7 @@ const getOneUser = async (req, res, next) => {
     const { id } = req.params;
     const user = await prisma.user.findUnique({
       where: {
-        id: Number(id),
+        id: +id,
       },
     });
     if (!user) {
@@ -79,7 +90,7 @@ const getOneUser = async (req, res, next) => {
     return res.status(200).json({
       status: 200,
       success: true,
-      data: user,
+      user,
       message: "User Data Fetched Successfully",
     });
   } catch (error) {
@@ -103,8 +114,6 @@ const updateUser = async (req, res, next) => {
         message: "User does not exist",
       });
     }
-
-    console.log(req.body);
 
     const updatedUser = await prisma.user.update({
       where: {

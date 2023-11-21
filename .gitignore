@@ -9,3 +9,4 @@ node_modules
 # Environment variables
 .env
 notes.md
+notes.txt
